@@ -1,0 +1,8 @@
+name: MurderMystery
+version: '${version}'
+
+main: net.saturn.murderMystery.MurderMystery
+api-version: '1.21.11'
+load: STARTUP
+
+authors: [ PumpkinDev ]
