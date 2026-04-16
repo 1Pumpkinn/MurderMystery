@@ -1,10 +1,13 @@
 package net.saturn.murderMystery;
 
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.saturn.murderMystery.commands.MurderMysteryCommand;
 import net.saturn.murderMystery.game.GameManager;
 import net.saturn.murderMystery.listeners.GameListener;
 import net.saturn.murderMystery.listeners.LobbyListener;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.List;
 
 public final class MurderMystery extends JavaPlugin {
 
@@ -22,10 +25,16 @@ public final class MurderMystery extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new GameListener(this), this);
         getServer().getPluginManager().registerEvents(new LobbyListener(this), this);
 
-        // Register commands
-        MurderMysteryCommand cmd = new MurderMysteryCommand(this);
-        getCommand("murdermystery").setExecutor(cmd);
-        getCommand("murdermystery").setTabCompleter(cmd);
+        // Register commands using Paper's lifecycle API
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            MurderMysteryCommand cmd = new MurderMysteryCommand(this);
+            event.registrar().register(
+                    "murdermystery",
+                    "Main Murder Mystery command",
+                    List.of("mm"),
+                    cmd
+            );
+        });
 
         getLogger().info("MurderMystery plugin enabled!");
     }

@@ -1,18 +1,20 @@
 package net.saturn.murderMystery.commands;
 
+import io.papermc.paper.command.brigadier.BasicCommand;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.saturn.murderMystery.MurderMystery;
 import net.saturn.murderMystery.game.GameManager;
-import net.saturn.murderMystery.game.GameState;
 import net.saturn.murderMystery.utils.MessageUtil;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
-public class MurderMysteryCommand implements CommandExecutor, TabCompleter {
+@SuppressWarnings("UnstableApiUsage")
+public class MurderMysteryCommand implements BasicCommand {
 
     private final MurderMystery plugin;
     private final GameManager gameManager;
@@ -23,25 +25,27 @@ public class MurderMysteryCommand implements CommandExecutor, TabCompleter {
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public void execute(@NotNull CommandSourceStack stack, @NotNull String[] args) {
+        CommandSender sender = stack.getSender();
+
         if (args.length == 0) {
             sendHelp(sender);
-            return true;
+            return;
         }
 
         switch (args[0].toLowerCase()) {
             case "join" -> {
                 if (!(sender instanceof Player player)) {
                     sender.sendMessage(MessageUtil.prefix("§cOnly players can join."));
-                    return true;
+                    return;
                 }
                 if (gameManager.isGameRunning()) {
                     player.sendMessage(MessageUtil.prefix("§cA game is already running! Wait for the next round."));
-                    return true;
+                    return;
                 }
                 if (gameManager.isInLobby(player.getUniqueId())) {
                     player.sendMessage(MessageUtil.prefix("§cYou are already in the lobby."));
-                    return true;
+                    return;
                 }
                 gameManager.addToLobby(player);
                 player.sendMessage(MessageUtil.prefix(
@@ -51,15 +55,15 @@ public class MurderMysteryCommand implements CommandExecutor, TabCompleter {
             case "leave" -> {
                 if (!(sender instanceof Player player)) {
                     sender.sendMessage(MessageUtil.prefix("§cOnly players can leave."));
-                    return true;
+                    return;
                 }
                 if (!gameManager.isInLobby(player.getUniqueId())) {
                     player.sendMessage(MessageUtil.prefix("§cYou are not in the lobby."));
-                    return true;
+                    return;
                 }
                 if (gameManager.isGameRunning()) {
                     player.sendMessage(MessageUtil.prefix("§cYou cannot leave mid-game. You will be treated as dead if you disconnect."));
-                    return true;
+                    return;
                 }
                 gameManager.removeFromLobby(player);
                 player.sendMessage(MessageUtil.prefix("§7You left the lobby."));
@@ -67,15 +71,15 @@ public class MurderMysteryCommand implements CommandExecutor, TabCompleter {
             case "start" -> {
                 if (!sender.hasPermission("murdermystery.admin")) {
                     sender.sendMessage(MessageUtil.prefix("§cYou don't have permission."));
-                    return true;
+                    return;
                 }
                 if (gameManager.isGameRunning()) {
                     sender.sendMessage(MessageUtil.prefix("§cA game is already running."));
-                    return true;
+                    return;
                 }
                 if (gameManager.getLobbySize() < gameManager.getMinPlayers()) {
                     sender.sendMessage(MessageUtil.prefix("§cNeed at least " + gameManager.getMinPlayers() + " players."));
-                    return true;
+                    return;
                 }
                 sender.sendMessage(MessageUtil.prefix("§aForce-starting the game..."));
                 gameManager.startGame();
@@ -83,11 +87,11 @@ public class MurderMysteryCommand implements CommandExecutor, TabCompleter {
             case "stop", "end" -> {
                 if (!sender.hasPermission("murdermystery.admin")) {
                     sender.sendMessage(MessageUtil.prefix("§cYou don't have permission."));
-                    return true;
+                    return;
                 }
                 if (!gameManager.isGameRunning()) {
                     sender.sendMessage(MessageUtil.prefix("§cNo game is running."));
-                    return true;
+                    return;
                 }
                 gameManager.forceEndGame();
                 sender.sendMessage(MessageUtil.prefix("§cGame forcefully ended."));
@@ -102,7 +106,20 @@ public class MurderMysteryCommand implements CommandExecutor, TabCompleter {
             }
             default -> sendHelp(sender);
         }
-        return true;
+    }
+
+    @Override
+    public @NotNull Collection<String> suggest(@NotNull CommandSourceStack stack, @NotNull String[] args) {
+        if (args.length == 1) {
+            List<String> options = new ArrayList<>(List.of("join", "leave", "status"));
+            if (stack.getSender().hasPermission("murdermystery.admin")) {
+                options.addAll(List.of("start", "stop"));
+            }
+            return options.stream()
+                    .filter(s -> s.startsWith(args[0].toLowerCase()))
+                    .toList();
+        }
+        return List.of();
     }
 
     private void sendHelp(CommandSender sender) {
@@ -114,19 +131,5 @@ public class MurderMysteryCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(MessageUtil.prefix("§f/mm start §7- Force start the game"));
             sender.sendMessage(MessageUtil.prefix("§f/mm stop §7- Force stop the game"));
         }
-    }
-
-    @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) {
-            List<String> options = new java.util.ArrayList<>(List.of("join", "leave", "status"));
-            if (sender.hasPermission("murdermystery.admin")) {
-                options.addAll(List.of("start", "stop"));
-            }
-            return options.stream()
-                    .filter(s -> s.startsWith(args[0].toLowerCase()))
-                    .toList();
-        }
-        return List.of();
     }
 }

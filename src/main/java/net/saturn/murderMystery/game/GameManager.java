@@ -11,8 +11,10 @@ import net.saturn.murderMystery.utils.VisionManager;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.scheduler.BukkitTask;
@@ -137,7 +139,7 @@ public class GameManager {
             setupPlayer(player, gp);
         }
 
-        // Start sub-systems
+        // Start sub-systems — VisionManager supplier always reflects current alive state
         visionManager = new VisionManager(plugin, this::getAlivePlayers);
         visionManager.start();
 
@@ -152,12 +154,10 @@ public class GameManager {
         player.getInventory().clear();
         player.setHealth(20);
         player.setFoodLevel(20);
-        // Remove all potion effects
         for (PotionEffect effect : player.getActivePotionEffects()) {
             player.removePotionEffect(effect.getType());
         }
 
-        // Give role items and notify
         switch (gp.getRole()) {
             case MURDERER -> {
                 player.getInventory().setItem(0, ItemFactory.createMurdererKnife());
@@ -185,12 +185,6 @@ public class GameManager {
 
     // ─── Death Handling ──────────────────────────────────────────────────────
 
-    /**
-     * Called when a player is killed. Handles role logic and win checking.
-     *
-     * @param victim   the player who died
-     * @param killer   the player who killed them (null if event kill)
-     */
     public void handleDeath(Player victim, Player killer) {
         GamePlayer gp = gamePlayers.get(victim.getUniqueId());
         if (gp == null || !gp.isAlive()) return;
@@ -201,13 +195,9 @@ public class GameManager {
 
         victim.getInventory().clear();
         victim.setGameMode(GameMode.SPECTATOR);
-        visionManager.stop(); // will re-apply without this player
 
-        // Re-apply vision to remaining players only
-        visionManager = new VisionManager(plugin, this::getAlivePlayers);
-        visionManager.start();
+        // No need to restart VisionManager — getAlivePlayers() supplier already filters by isAlive()
 
-        // Broadcast death
         String killerName = killer != null ? killer.getName() : "the darkness";
         Bukkit.broadcast(MessageUtil.prefix("§c☠ " + victim.getName() + " was killed by " + killerName + "!"));
         victim.playSound(victim.getLocation(), Sound.ENTITY_PLAYER_DEATH, 1f, 1f);
@@ -217,7 +207,6 @@ public class GameManager {
             GamePlayer killerGp = gamePlayers.get(killer.getUniqueId());
             if (killerGp != null && killerGp.getRole() == Role.SHERIFF && gp.getRole() != Role.MURDERER) {
                 killer.sendMessage(MessageUtil.prefix("§c§lYou shot an innocent! You pay with your life."));
-                // Drop the bow at the shooter's location
                 killer.getWorld().dropItemNaturally(killer.getLocation(), ItemFactory.createSheriffBow());
                 handleDeath(killer, null);
                 return;
@@ -237,9 +226,9 @@ public class GameManager {
         long nonMurderers = alive.stream().filter(gp -> gp.getRole() != Role.MURDERER).count();
 
         if (murderers == 0) {
-            endGame(false); // Murderer(s) dead → innocents win
+            endGame(false);
         } else if (nonMurderers == 0) {
-            endGame(true);  // Only murderers remain → murderer wins
+            endGame(true);
         }
     }
 
@@ -269,18 +258,17 @@ public class GameManager {
             }
         }
 
-        // Reveal all roles after game ends
+        // Reveal all roles — use getLegacyColor() so colours render correctly
         StringBuilder roleReveal = new StringBuilder("§7--- §fRole Reveal §7---\n");
         for (GamePlayer gp : gamePlayers.values()) {
             String status = gp.isAlive() ? "§a(alive)" : "§c(dead)";
             roleReveal.append("§f").append(gp.getName())
-                    .append(" §8» ").append(gp.getRole().getColor())
+                    .append(" §8» ").append(gp.getRole().getLegacyColor())
                     .append(gp.getRole().getDisplayName())
                     .append(" ").append(status).append("\n");
         }
         Bukkit.broadcast(MessageUtil.prefix(roleReveal.toString()));
 
-        // Reset after 10 seconds
         Bukkit.getScheduler().runTaskLater(plugin, this::resetGame, 200L);
     }
 
