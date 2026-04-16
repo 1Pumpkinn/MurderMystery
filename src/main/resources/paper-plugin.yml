@@ -2,7 +2,18 @@ name: MurderMystery
 version: '${version}'
 
 main: net.saturn.murderMystery.MurderMystery
-api-version: '1.21.11'
+api-version: '1.21'
 load: STARTUP
 
 authors: [ PumpkinDev ]
+
+commands:
+  murdermystery:
+    description: Main Murder Mystery command
+    aliases: [ mm ]
+    usage: /mm <join|leave|start|stop|status>
+
+permissions:
+  murdermystery.admin:
+    description: Access to admin commands (start, stop)
+    default: op
